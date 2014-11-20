@@ -1,0 +1,189 @@
+;void copy(int array[], int array_copy[], int array_len)
+;{
+;  int i;
+;  for (i = 0; i < array_len; i++)
+;    array_copy[i] = array[i];
+;}
+;void sort(int array[], int array_len)
+;{
+;  int i, j, temp;
+;  for (i = 1; i < array_len; i++)
+;  {
+;    temp = array[i];
+;    for (j = i - 1; j >= 0 && temp < array[j]; j--)
+;      array[j + 1] = array[j];
+;    array[j + 1] = temp;
+;  }
+;}
+;int find(int array[], int array_len, int key)
+;{
+;  int low = 0;
+;  int high = array_len - 1;
+;  int mid;
+;  while (low <= high)
+;  {
+;    mid = (low + high) / 2;
+;    if (key < array[mid])
+;      high = mid - 1;
+;    else if (key > array[mid])
+;      low = mid + 1;
+;    else
+;      return mid;
+;  }
+;  return -1;
+;}
+;int main()
+;{
+;  int array_len, choice, data, index, array[256], array_copy[256];
+;  copy(array, array_copy, array_len);
+;  sort(array_copy, array_len);
+;  do
+;  {
+;    printf("Enter Data: ");
+;    scanf("%d", &data);
+;    index = find(array_copy, array_len, data);
+;    printf("Index: %d\n", index);
+;    printf("Want to continue? (1=yes, 0=no): ");
+;    scanf("%d", &choice);
+;  } while (choice);
+;  return 0;
+;}
+
+	.EQU LEN, $A00
+	.EQU ARR, $A01
+
+	.EQU PUT_NUM, $E00
+	.EQU GET_NUM, $E01
+	.EQU PUT_STR, $E05
+
+	LDS# $E00
+	PSH LEN
+	PSH# NEW_ARRAY
+	PSH# ARR
+	JSR COPY	; copy(array, array_copy, array_len);
+	ADS# 3
+	PSH LEN
+	PSH# NEW_ARRAY
+	JSR SORT	; sort(array_copy, array_len);
+	ADS# 2
+
+MAIN_LOOP:	PSH# DATA_PROMPT_LEN
+	PSH# DATA_PROMPT
+	JSR PUT_STR	; printf("Enter Data ");
+	ADS# 2
+	JSR GET_NUM	; scanf("%d", &data);
+	PSHA
+	PSH LEN
+	PSH# NEW_ARRAY
+	JSR FIND	; ACC = find(array_copy, array_len, data)
+	ADS# 3
+	PSH# INDEX_PROMPT_LEN	
+	PSH# INDEX_PROMPT
+	JSR PUT_STR	; printf("Index: ");
+	ADS# 2
+	JSR PUT_NUM	; printf("%d", index);
+	PSH# CONTINUE_LEN
+	PSH# CONTINUE
+	JSR PUT_STR	; printf("Want to continue? (1=yes, 0=no)");
+	ADS# 2
+	JSR GET_NUM	; scanf("%d", &choice);
+	CMA# 1
+	JEQ MAIN_LOOP
+	HLT
+
+	; void copy(int array[], int array_copy[], int array_len)
+	.EQU COPY_ARRAY, 2	; &array = FP + 2
+	.EQU COPY_NEW_ARRAY, 3	; &array_copy = FP + 3
+	.EQU COPY_LEN, 4	; array_len = FP + 4
+COPY:	BGN# 0
+	LDX ! COPY_LEN
+	SBX# 1		; XR = array_len - 1
+
+COPY_LOOP:	LDA& ! COPY_ARRAY	
+	STA& ! COPY_NEW_ARRAY	; array_copy[XR] = array[XR]
+	SOJ COPY_LOOP	; jump if XR >= 0
+
+	FIN# 0
+	RTN
+
+	;void sort(int array[], int array_len)
+	.EQU SORT_I, 0	; i = FP
+	.EQU SORT_TEMP, 1	; temp = FP + 1
+	.EQU SORT_ARRAY, 4	; &array = FP + 4
+	.EQU SORT_LEN, 5	; array_len = FP + 5
+SORT:	BGN# 2
+	LDA# 1
+	STA ! SORT_I	; i = 1
+
+SORT_LOOP:	CMA ! SORT_LEN	; Is i < array_len?
+	JEQ SORT_DONE
+	STA ! SORT_I
+	TAX		; XR = i
+	LDA& ! SORT_ARRAY	
+	STA ! SORT_TEMP	; temp = array[i]
+
+SORT_LOOP2:	SBX# 1		; j = i - 1, j--
+	CMX# 0		; Is j >= 0?
+	JLT SORT_INC
+	CMA& ! SORT_ARRAY	; Is temp < array[j]?
+	JGT SORT_INC
+	LDA& ! SORT_ARRAY	; ACC = array[j]
+	ADX# 1		; XR = j + 1
+	STA& ! SORT_ARRAY	; array[j + 1] = array[j]
+	SBX# 1		; XR = j
+	LDA ! SORT_TEMP	; ACC = temp
+	JMP SORT_LOOP2
+
+SORT_INC:	ADX# 1		; XR = j + 1
+	LDA ! SORT_TEMP
+	STA& ! SORT_ARRAY	; array[j + 1] = temp
+	LDA ! SORT_I
+	ADA# 1
+	JMP SORT_LOOP
+
+SORT_DONE:	FIN# 2
+	RTN
+
+	;int find(int array[], int array_len, int key)
+	.EQU FIND_LOW, 0	; low = FP 
+	.EQU FIND_HIGH, 1	; high = FP + 1
+	.EQU FIND_ARRAY, 4	; &array = FP + 5
+	.EQU FIND_LEN, 5	; array_len = FP + 6
+	.EQU FIND_KEY, 6	; key = FP + 7
+FIND:	BGN# 2
+	CLR ! FIND_LOW	; low = 0
+	LDA ! FIND_LEN
+	SBA# 1		; ACC = array_len - 1
+	STA ! FIND_HIGH	; high = array_len - 1
+
+FIND_LOOP:	CMA ! FIND_LOW	; while(low <= high) -> while(high >= low)
+	JLT FIND_FAIL
+	ADA ! FIND_LOW	; ACC = low + high
+	DIV# 2		; ACC = (low + high) / 2
+	TAX		; XR = mid
+	LDA ! FIND_KEY	; ACC = key
+	CMA& ! FIND_ARRAY
+	TXA		; ACC = mid
+	JLT FIND_LESS	; if (key < array[mid])
+	JGT FIND_GREATER	; else if (key > array[mid])
+	JMP FIND_DONE	; else, key was found! :D		
+
+FIND_LESS:	SBA# 1		; ACC = mid - 1
+	STA ! FIND_HIGH	; high = mid - 1
+	JMP FIND_LOOP
+
+FIND_GREATER:	ADA# 1		; ACC = mid + 1
+	STA ! FIND_LOW	; low = mid + 1
+	LDA ! FIND_HIGH	; need to load high in ACC to compare with low
+	JMP FIND_LOOP
+
+FIND_FAIL:	LDA# 0		; failure is depressing :(
+	SBA# 1		; ACC = -1
+
+FIND_DONE:	FIN# 2
+	RTN
+
+NEW_ARRAY: 	.BLKW 256
+DATA_PROMPT:	.CHAR 'Enter Data', DATA_PROMPT_LEN
+INDEX_PROMPT:	.CHAR 'Index: ', INDEX_PROMPT_LEN
+CONTINUE:	.CHAR 'Want to continue? (1=yes, 0=no)', CONTINUE_LEN

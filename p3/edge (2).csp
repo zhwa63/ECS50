@@ -1,0 +1,77 @@
+;  for (i = 0; i < rows; i++)
+;  {
+;    for (j = 0; j < cols; j++)
+;    {
+;      if (grid[i][j] == 1 && grid[i][j - 1] == 1 && grid[i][j + 1] == 1
+;        && grid[i - 1][j] == 1 && grid[i + 1][j] == 1)
+;        printf("0 ");
+;      else
+;        printf("%d ", grid[i][j]);
+;    }
+;    printf("\n");
+;  }
+
+	.EQU PUT_NL, $E06
+	.EQU PUT_NUM2, $E07
+	.EQU PUT_CHR, $E08
+	
+	.EQU ROWS, $B00
+	.EQU COLS, $B01
+	.EQU ARR, $B02
+
+	LDS# $E00	
+	CLR ROW	; i = 0
+	LDX# 0
+LOOP1:	LDA ROW
+	CMA ROWS	; Is i < rows?
+	JEQ DONE
+	ADA# 1		; i++
+	STA ROW
+	CLR COL	; j = 0
+
+LOOP2:	LDA COL
+	CMA COLS	; Is j < cols?
+	JEQ PRINT_NL
+	ADA# 1
+	STA COL
+	LDA+ ARR	; load ACC with grid[i][j]
+	CMA# 0
+	JEQ PRINT_CURRENT	; if (grid[i][j] == 0)
+	STX INDEX	; save XR, will be changed
+	SBX# 1
+	CMA+ ARR
+	JNE FIX_XR	; if (grid[i][j - 1] == 0)
+	ADX# 2
+	CMA+ ARR
+	JNE FIX_XR	; if (grid[i][j + 1] == 0)
+	SBX# 1
+	SBX COLS
+	CMA+ ARR
+	JNE FIX_XR	; if (grid[i - 1][j] == 0)
+	ADX COLS
+	ADX COLS
+	CMA+ ARR
+	JNE FIX_XR	; if (grid[i + 1][j] == 0)
+	SBX COLS
+	LDA# 0		; we know that this 1 is not an edge, print 0
+	JSR PUT_NUM2
+	LDA# ' '
+	JSR PUT_CHR
+	ADX# 1		; j++
+	JMP LOOP2
+
+FIX_XR:	LDX INDEX	; restore XR
+PRINT_CURRENT:	JSR PUT_NUM2
+	LDA# ' '
+	JSR PUT_CHR
+	ADX# 1 	; j++
+	JMP LOOP2	
+	
+PRINT_NL:	JSR PUT_NL
+	JMP LOOP1
+
+DONE:	HLT
+
+ROW:	.WORD
+COL:	.WORD
+INDEX:	.WORD
